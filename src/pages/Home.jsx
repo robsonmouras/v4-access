@@ -1,0 +1,227 @@
+import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { useAuth } from '../contexts/AuthContext'
+import { useCompany } from '../contexts/CompanyContext'
+import { supabase } from '../lib/supabase'
+import Header from '../components/Header'
+import CompanyForm from '../components/CompanyForm'
+import DeleteCompanyModal from '../components/DeleteCompanyModal'
+import { Building2, Plus, Search, Trash2, Key, ArrowRight } from 'lucide-react'
+
+const Home = () => {
+  const { userProfile } = useAuth()
+  const { companies, fetchCompanies, deleteCompany, setSelectedCompany } = useCompany()
+  const navigate = useNavigate()
+  const [searchTerm, setSearchTerm] = useState('')
+  const [companiesWithCount, setCompaniesWithCount] = useState([])
+  const [loading, setLoading] = useState(false)
+  const [showCompanyForm, setShowCompanyForm] = useState(false)
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [companyToDelete, setCompanyToDelete] = useState(null)
+  const [sidebarOpen, setSidebarOpen] = useState(false)
+
+  const canManageCompanies = userProfile?.role === 'super_admin' || userProfile?.role === 'admin'
+  const canDelete = userProfile?.role === 'super_admin'
+
+  useEffect(() => {
+    fetchCompaniesWithCredentials()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [companies, searchTerm])
+
+  const fetchCompaniesWithCredentials = async () => {
+    setLoading(true)
+    try {
+      const companiesData = await Promise.all(
+        companies.map(async (company) => {
+          const { count, error } = await supabase
+            .from('credentials')
+            .select('*', { count: 'exact', head: true })
+            .eq('company_id', company.id)
+
+          if (error) throw error
+
+          return {
+            ...company,
+            credentialsCount: count || 0,
+          }
+        })
+      )
+
+      // Filtrar por busca
+      const filtered = companiesData.filter((company) =>
+        company.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (company.description && company.description.toLowerCase().includes(searchTerm.toLowerCase()))
+      )
+
+      setCompaniesWithCount(filtered)
+    } catch (error) {
+      console.error('Erro ao buscar empresas com credenciais:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleDeleteClick = (company) => {
+    setCompanyToDelete(company)
+    setShowDeleteModal(true)
+  }
+
+  const handleDeleteConfirm = async () => {
+    if (!companyToDelete) return
+
+    try {
+      await deleteCompany(companyToDelete.id)
+      setShowDeleteModal(false)
+      setCompanyToDelete(null)
+      // O fetchCompanies será chamado automaticamente pelo CompanyContext
+      // Mas vamos garantir que a lista seja atualizada
+      setTimeout(() => {
+        fetchCompaniesWithCredentials()
+      }, 500)
+    } catch (error) {
+      console.error('Erro ao deletar empresa:', error)
+      alert('Erro ao deletar empresa. Tente novamente.')
+    }
+  }
+
+  const handleCompanyClick = (company) => {
+    // Atualizar empresa selecionada no contexto
+    setSelectedCompany(company)
+    navigate(`/dashboard?company=${company.id}`)
+  }
+
+  return (
+    <div className="min-h-screen bg-v4-light">
+      <Header sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
+
+      <main className="p-4 md:p-6 lg:p-8">
+        <div className="max-w-7xl mx-auto">
+          <div className="mb-6">
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-4">
+              <div>
+                <h1 className="text-3xl font-bold text-v4-dark mb-2">Empresas</h1>
+                <p className="text-gray-600">
+                  {companiesWithCount.length} empresa(s) cadastrada(s)
+                </p>
+              </div>
+
+              {canManageCompanies && (
+                <button
+                  onClick={() => setShowCompanyForm(true)}
+                  className="flex items-center gap-2 bg-v4-primary text-white px-4 py-2 rounded-lg hover:bg-v4-secondary transition-colors"
+                >
+                  <Plus className="w-5 h-5" />
+                  Nova Empresa
+                </button>
+              )}
+            </div>
+
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+              <input
+                type="text"
+                placeholder="Buscar empresas por nome ou descrição..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-v4-primary focus:border-transparent"
+              />
+            </div>
+          </div>
+
+          {loading ? (
+            <div className="flex items-center justify-center py-12">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-v4-primary"></div>
+            </div>
+          ) : companiesWithCount.length === 0 ? (
+            <div className="bg-white rounded-lg shadow p-8 text-center">
+              <Building2 className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+              <p className="text-gray-600 mb-4">
+                {searchTerm ? 'Nenhuma empresa encontrada' : 'Nenhuma empresa cadastrada'}
+              </p>
+              {canManageCompanies && !searchTerm && (
+                <button
+                  onClick={() => setShowCompanyForm(true)}
+                  className="bg-v4-primary text-white px-4 py-2 rounded-lg hover:bg-v4-secondary transition-colors"
+                >
+                  Criar Primeira Empresa
+                </button>
+              )}
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {companiesWithCount.map((company) => (
+                <div
+                  key={company.id}
+                  className="bg-white rounded-lg shadow hover:shadow-lg transition-shadow p-6 cursor-pointer"
+                  onClick={() => handleCompanyClick(company)}
+                >
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="flex items-center gap-3 flex-1">
+                      <div className="p-3 bg-v4-primary bg-opacity-10 rounded-lg">
+                        <Building2 className="w-6 h-6 text-v4-primary" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-semibold text-lg text-gray-900 truncate">
+                          {company.name}
+                        </h3>
+                        {company.description && (
+                          <p className="text-sm text-gray-500 mt-1 line-clamp-2">
+                            {company.description}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+
+                    {canDelete && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handleDeleteClick(company)
+                        }}
+                        className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                        title="Deletar empresa"
+                      >
+                        <Trash2 className="w-5 h-5" />
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="flex items-center justify-between pt-4 border-t border-gray-200">
+                    <div className="flex items-center gap-2 text-sm text-gray-600">
+                      <Key className="w-4 h-4" />
+                      <span>
+                        {company.credentialsCount} credencial{company.credentialsCount !== 1 ? 'is' : ''}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2 text-v4-primary text-sm font-medium">
+                      <span>Ver credenciais</span>
+                      <ArrowRight className="w-4 h-4" />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </main>
+
+      {showCompanyForm && (
+        <CompanyForm onClose={() => setShowCompanyForm(false)} />
+      )}
+
+      {showDeleteModal && companyToDelete && (
+        <DeleteCompanyModal
+          company={companyToDelete}
+          onClose={() => {
+            setShowDeleteModal(false)
+            setCompanyToDelete(null)
+          }}
+          onConfirm={handleDeleteConfirm}
+        />
+      )}
+    </div>
+  )
+}
+
+export default Home
+
