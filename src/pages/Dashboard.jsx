@@ -8,6 +8,7 @@ import Sidebar from '../components/Sidebar'
 import CredentialList from '../components/CredentialList'
 import CredentialForm from '../components/CredentialForm'
 import CompanyForm from '../components/CompanyForm'
+import ExportCredentialsButton from '../components/ExportCredentialsButton'
 import { Plus, Search, Filter, Home as HomeIcon } from 'lucide-react'
 import Swal from 'sweetalert2'
 
@@ -255,15 +256,23 @@ const Dashboard = () => {
                     </div>
                   </div>
 
-                  {canCreate && (
-                    <button
-                      onClick={handleCreateCredential}
-                      className="flex items-center gap-2 bg-ea-accent text-white font-semibold px-4 py-2 rounded-lg hover:bg-ea-accent-dark transition-colors"
-                    >
-                      <Plus className="w-5 h-5" />
-                      Nova Credencial
-                    </button>
-                  )}
+                  <div className="flex items-center gap-3">
+                    {isSuperAdmin && (
+                      <ExportCredentialsButton
+                        credentials={filteredCredentials}
+                        companyName={selectedCompany.name}
+                      />
+                    )}
+                    {canCreate && (
+                      <button
+                        onClick={handleCreateCredential}
+                        className="flex items-center gap-2 bg-ea-accent text-white font-semibold px-4 py-2 rounded-lg hover:bg-ea-accent-dark transition-colors"
+                      >
+                        <Plus className="w-5 h-5" />
+                        Nova Credencial
+                      </button>
+                    )}
+                  </div>
                 </div>
 
                 <div className="flex flex-col md:flex-row gap-4">
