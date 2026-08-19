@@ -20,7 +20,6 @@ const buildRows = (credentials, companyName) =>
     login: c.login || '',
     senha: c.password || '',
     link: c.link || '',
-    criado_em: c.created_at ? new Date(c.created_at).toLocaleString('pt-BR') : '',
   }))
 
 const csvEscape = (value) => {
@@ -45,7 +44,7 @@ const downloadBlob = (content, filename, mimeType) => {
 
 const exportCSV = (credentials, companyName) => {
   const rows = buildRows(credentials, companyName)
-  const headers = ['Empresa', 'Tipo', 'Nome', 'Login', 'Senha', 'Link', 'Criado em']
+  const headers = ['Empresa', 'Tipo', 'Nome', 'Login', 'Senha', 'Link']
   const lines = [
     headers.join(';'),
     ...rows.map((r) => Object.values(r).map(csvEscape).join(';')),
